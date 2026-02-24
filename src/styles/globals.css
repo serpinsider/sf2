@@ -1,0 +1,86 @@
+/* San Jose Maids Global Styles */
+:root {
+  /* Ocean Theme - Deep blues */
+  --primary-bg: rgba(15, 45, 75, 0.95);
+  --secondary-bg: rgba(20, 50, 80, 0.98);
+  --card-bg: rgba(25, 55, 85, 0.9);
+  
+  /* Text colors */
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.8);
+  --text-muted: rgba(255, 255, 255, 0.6);
+  
+  /* Accent colors - Gold */
+  --accent-gold: #dfbd69;
+  --accent-primary: #dfbd69;
+  --accent-secondary: #b8956d;
+  
+  /* Status colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+  
+  /* Border colors */
+  --border-light: rgba(255, 255, 255, 0.1);
+  --border-medium: rgba(255, 255, 255, 0.2);
+  --border-heavy: rgba(255, 255, 255, 0.3);
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-secondary);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Form styling */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+/* Animation classes */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(223, 189, 105, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(223, 189, 105, 0.5); }
+}
+
+@keyframes selected-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-selected-pulse {
+  animation: selected-pulse 1.5s ease-in-out infinite;
+}
+
+/* Background patterns */
+body {
+  background: linear-gradient(135deg, var(--primary-bg) 0%, var(--secondary-bg) 100%);
+  min-height: 100vh;
+}

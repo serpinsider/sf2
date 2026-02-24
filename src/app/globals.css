@@ -1,0 +1,271 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* San Jose Maids color palette - Ocean theme - Royal Blue */
+  --background: #E0F2F7;
+  --foreground: #1a3755;
+  --slate-50: #E0F2F7;
+  --slate-100: #B2E0EA;
+  --slate-200: #80CED6;
+  --slate-300: #4DB8C4;
+  --slate-400: #5b9aa8;
+  --slate-500: #3d7a8a;
+  --slate-600: #2a5a6a;
+  --slate-700: #1a3755;
+  --slate-800: rgba(26, 55, 85, 0.95);   /* Main royal blue for sections (from header) */
+  --slate-900: rgba(22, 48, 75, 0.95);   /* Rich royal blue for cards/tables - uniform across site */
+  
+  /* Button system - San Jose Maids Ocean Theme with proper gradation */
+  --primary-button-bg: rgba(18, 40, 65, 1);  /* Darkest royal blue for CTAs - full opacity */
+  --primary-button-text: #FFFFFF;
+  --primary-button-hover-bg: rgba(22, 48, 75, 1);
+  
+  --secondary-button-bg: transparent;
+  --secondary-button-text: #FFFFFF;
+  --secondary-button-border: #FFFFFF;
+  --secondary-button-hover-bg: rgba(224, 242, 247, 0.1);
+  
+  --tertiary-button-bg: transparent;
+  --tertiary-button-text: #dfbd69;
+  --tertiary-button-border: #dfbd69;
+  --tertiary-button-hover-bg: rgba(223, 189, 105, 0.1);
+  
+  --quaternary-button-bg: linear-gradient(135deg, #dfbd69 0%, #b8956d 100%);
+  --quaternary-button-text: #194169;
+  --quaternary-button-hover-bg: linear-gradient(135deg, #dfbd69 0%, #b8956d 100%);
+
+  /* Accent colors */
+  --brand-gold: #dfbd69;
+  --brand-gold-dark: #b8956d;
+  --brand-white: #FFFFFF;
+  --brand-ocean: #1a3755;
+  --brand-coastal: #5b9aa8;
+  
+  /* Accessible text colors */
+  --text-on-dark: #FFFFFF;
+  --text-on-light: #194169;
+  --text-muted-dark: #A3D3E1;
+  --text-muted-light: #2a5a6a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-slate-50: var(--slate-50);
+  --color-slate-100: var(--slate-100);
+  --color-slate-200: var(--slate-200);
+  --color-slate-300: var(--slate-300);
+  --color-slate-400: var(--slate-400);
+  --color-slate-500: var(--slate-500);
+  --color-slate-600: var(--slate-600);
+  --color-slate-700: var(--slate-700);
+  --color-slate-800: var(--slate-800);
+  --color-slate-900: var(--slate-900);
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #193755;
+    --foreground: #E8F4F8;
+  }
+}
+
+/* Base styles */
+* {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body {
+  color: var(--text-on-dark);
+  background: var(--primary-button-bg);
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Smooth scrolling */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Custom smooth scrolling animation */
+@supports (scroll-behavior: smooth) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Button System */
+.button-primary, .button-secondary, .button-tertiary {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border: 2px solid transparent;
+}
+
+.button-primary {
+  background-color: var(--primary-button-bg);
+  color: var(--primary-button-text);
+  border-color: var(--primary-button-bg);
+}
+
+.button-primary:hover {
+  background-color: var(--primary-button-hover-bg);
+  border-color: var(--primary-button-hover-bg);
+  transform: translateY(-1px);
+}
+
+.button-secondary {
+  background-color: var(--secondary-button-bg);
+  color: var(--secondary-button-text);
+  border-color: var(--secondary-button-border);
+}
+
+.button-secondary:hover {
+  background-color: var(--secondary-button-hover-bg);
+  transform: translateY(-1px);
+}
+
+.button-tertiary {
+  background-color: var(--tertiary-button-bg);
+  color: var(--tertiary-button-text);
+  border-color: var(--tertiary-button-border);
+}
+
+.button-tertiary:hover {
+  background-color: var(--tertiary-button-hover-bg);
+  transform: translateY(-1px);
+}
+
+.button-quaternary {
+  background: linear-gradient(135deg, #d4a574 0%, #b8956d 100%);
+  color: var(--quaternary-button-text);
+  border: 2px solid transparent;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.button-quaternary:hover {
+  transform: translateY(-1px);
+}
+
+.button-quaternary:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* Form expansion animations */
+#quote-form-container {
+  transition: width 0.3s ease-out, max-width 0.3s ease-out;
+  will-change: width, max-width;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+.quote-form-container.expand {
+  width: 100% !important;
+  max-width: 800px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Custom scrollbar - Gold theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--brand-gold);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-gold-dark);
+}
+
+/* Hero Title Styling */
+.hero-title {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  font-weight: 700;
+  background: linear-gradient(135deg, #d4a574 0%, #b8956d 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@media (min-width: 768px) {
+  .hero-title {
+    font-size: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-title {
+    font-size: 2rem;
+  }
+}
+
+/* Form styling */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+/* Animation classes */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(74, 155, 142, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(74, 155, 142, 0.5); }
+}
+
+@keyframes selected-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-selected-pulse {
+  animation: selected-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fadeInUp {
+  animation: fadeInUp 0.4s ease-out;
+}

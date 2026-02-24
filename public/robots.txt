@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://www.sanjosemaids.com/sitemap.xml
+
+Disallow: /api/
+Disallow: /login
+Disallow: /signup
+Disallow: /quote/test-quote
+
+Crawl-delay: 1
