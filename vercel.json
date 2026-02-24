@@ -1,15 +1,3 @@
 {
-  "redirects": [
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.pacificmaids.com"
-        }
-      ],
-      "destination": "https://pacificmaids.com/:path*",
-      "permanent": true
-    }
-  ]
+  "framework": "nextjs"
 }
