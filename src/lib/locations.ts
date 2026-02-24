@@ -97,3 +97,38 @@ export const locations: Location[] = [
     description: "Professional cleaning services in Union City, CA. Serving all Union City areas."
   },
 ];
+
+export function getLocationWithState(locationName: string, locationSlug?: string): string {
+  let location: Location | undefined;
+
+  if (locationSlug) {
+    location = locations.find(loc => loc.slug === locationSlug);
+  } else {
+    location = locations.find(loc => loc.name === locationName);
+  }
+
+  if (location) {
+    return `${location.name}, ${location.state}`;
+  }
+
+  return `${locationName}, CA`;
+}
+
+export function getLocationState(locationSlug: string): string {
+  const location = locations.find(loc => loc.slug === locationSlug);
+  return location?.state || "CA";
+}
+
+export function getLocationBySlug(slug: string): Location | undefined {
+  return locations.find(loc => loc.slug === slug);
+}
+
+export const popularLocations = [
+  "san-jose", "santa-clara", "sunnyvale", "cupertino", "palo-alto",
+  "mountain-view", "los-gatos"
+];
+
+export function getLocationPath(slug: string, service?: string): string {
+  const basePath = `/locations/${slug}`;
+  return service ? `${basePath}/${service}` : basePath;
+}
