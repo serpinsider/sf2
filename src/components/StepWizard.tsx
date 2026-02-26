@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { ADDONS } from '@/lib/constants/addons';
 import { CONTACT_INFO } from '@/lib/contact';
 import SuccessMessage from '@/components/shared/SuccessMessage';
-// import { trackEvent } from '@/lib/posthog/client';
 
 interface FormData {
   // Step 1 - Contact
@@ -21,10 +20,6 @@ interface FormData {
   squareFootage: string;
   frequency: string;
   serviceType: string;
-  
-  // Additional Services Interest
-  interestedInCarpet?: boolean;
-  interestedInHandyman?: boolean;
   
   // Confirmation
   confirmationNumber?: string;
@@ -54,7 +49,9 @@ interface FormData {
     officeCleaning: boolean;
     townhouse: boolean;
     extraHour: boolean;
-      washerDryer: boolean; // Using for stair cleaning
+    washerDryer: boolean;
+    stairwayCleaning: boolean;
+    dishwasher: boolean;
     movingServices: boolean;
     superDeepClean: boolean;
   };
@@ -72,6 +69,8 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
   const [submitError, setSubmitError] = useState<string>('');
   const [showAddonsTray, setShowAddonsTray] = useState(false);
   const prevExpandedStateRef = useRef<boolean | undefined>(undefined);
+  const wizardRef = useRef<HTMLDivElement>(null);
+  const stepContentRef = useRef<HTMLDivElement>(null);
   
   const [formData, setFormData] = useState<FormData>({
     phone: '',
@@ -84,8 +83,6 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
     squareFootage: 'Under 1,000 sqft',
     frequency: 'One Time',
     serviceType: '',
-    interestedInCarpet: false,
-    interestedInHandyman: false,
     addons: {
       insideFridge: false,
       insideOven: false,
@@ -111,6 +108,8 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
       townhouse: false,
       extraHour: false,
       washerDryer: false,
+      stairwayCleaning: false,
+      dishwasher: false,
       movingServices: false,
       superDeepClean: false,
     }
@@ -119,8 +118,6 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
   // Initialize mounted state
   useEffect(() => {
     setIsMounted(true);
-    // Track wizard start
-    // trackEvent('quote_wizard_started');
   }, []);
 
   // Phone number formatting
@@ -166,6 +163,9 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
     }
 
     if (step === 2) {
+      if (!formData.serviceType) {
+        newErrors.serviceType = 'Please select a service type';
+      }
       if (!formData.firstName.trim()) {
         newErrors.firstName = 'First name is required';
       }
@@ -182,10 +182,9 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
       } else if (!/^\d{5}$/.test(formData.zipCode.trim())) {
         newErrors.zipCode = 'Please enter a valid 5-digit zip code';
       }
-      if (!formData.serviceType) {
-        newErrors.serviceType = 'Please select a service type';
-      }
     }
+
+    // Step 3 is summary - no validation needed
 
     return newErrors;
   };
@@ -193,22 +192,20 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
   // Notify parent when form expands beyond step 1
   useEffect(() => {
     if (onFormExpand && isMounted) {
-      const isCurrentlyExpanded = currentStep === 2 || currentStep === 3 || currentStep === 4;
-      // Always notify on step 4 to ensure success message stays in expanded container
-      if (currentStep === 4 || typeof prevExpandedStateRef.current === 'undefined' || prevExpandedStateRef.current !== isCurrentlyExpanded) {
+      const isCurrentlyExpanded = currentStep >= 2;
+      if (typeof prevExpandedStateRef.current === 'undefined' || prevExpandedStateRef.current !== isCurrentlyExpanded) {
         prevExpandedStateRef.current = isCurrentlyExpanded;
         onFormExpand(isCurrentlyExpanded, true); // immediate=true for step changes
       }
     }
   }, [currentStep, onFormExpand, isMounted]);
 
-  // Scroll to top when reaching success step
+  // Scroll to top of page when reaching review step
   useEffect(() => {
-    if (currentStep === 4 && isMounted) {
-      scrollToForm();
-      setTimeout(scrollToForm, 650);
+    if (currentStep === 3) {
+      window.scrollTo(0, 0);
     }
-  }, [currentStep, isMounted]);
+  }, [currentStep]);
 
   const updateFormData = (field: string, value: string) => {
     // If changing service type to deep or moveout, reset and auto-enable required addons
@@ -238,6 +235,8 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
         townhouse: false,
         extraHour: false,
         washerDryer: false,
+        stairwayCleaning: false,
+        dishwasher: false,
         movingServices: false,
         superDeepClean: false,
       };
@@ -264,12 +263,7 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
         }
       }));
 
-      // Show addons tray after service type is selected (except for services without addons)
-      if (value !== 'post-construction' && value !== 'carpet' && value !== 'handyman') {
-        setShowAddonsTray(true);
-      } else {
-        setShowAddonsTray(false);
-      }
+      setShowAddonsTray(true);
     } else {
       setFormData(prev => ({ ...prev, [field]: value }));
     }
@@ -328,36 +322,25 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
 
 
 
-  const scrollToForm = () => {
-    // First scroll to top of form container
-    const formElement = document.getElementById('quote-form-container');
-    if (formElement) {
-      const formRect = formElement.getBoundingClientRect();
-      const absoluteFormTop = window.pageYOffset + formRect.top - 20; // 20px padding
-      window.scrollTo({
-        top: absoluteFormTop,
-        behavior: 'smooth'
-      });
-    }
-  };
-
   const nextStep = async () => {
     const stepErrors = validateStep(currentStep);
     if (Object.keys(stepErrors).length > 0) {
       setErrors(stepErrors);
+      // Scroll to first error so user sees what to fix
+      const order = ['serviceType', 'zipCode', 'firstName', 'lastName', 'email'];
+      const firstKey = order.find((k) => stepErrors[k]);
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const el = firstKey && document.getElementById(`field-${firstKey}`);
+          if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }, 80);
+      });
       return;
     }
     
-    // Track step completion
-    // trackEvent('quote_wizard_step_completed', {
-    //   step: currentStep,
-    //   step_name: currentStep === 1 ? 'phone' : 'property_details',
-    // });
-    
-    if (currentStep < 2) {
+    if (currentStep < 3) {
       setErrors({});
       setCurrentStep(currentStep + 1);
-      scrollToForm();
     }
   };
 
@@ -392,8 +375,6 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
       squareFootage: 'Under 1,000 sqft',
       frequency: 'One Time',
       serviceType: '',
-      interestedInCarpet: false,
-      interestedInHandyman: false,
       addons: {
         insideFridge: false,
         insideOven: false,
@@ -419,6 +400,8 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
         townhouse: false,
         extraHour: false,
         washerDryer: false,
+        stairwayCleaning: false,
+        dishwasher: false,
         movingServices: false,
         superDeepClean: false,
       }
@@ -429,13 +412,7 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
   };
 
   const handleSubmit = async (retryCount = 0) => {
-    // Validate step 2 (contact info) before submitting
-    const stepErrors = validateStep(2);
-    if (Object.keys(stepErrors).length > 0) {
-      setErrors(stepErrors);
-      return;
-    }
-
+    // No validation needed for step 4 (summary) - already validated in step 3
     setIsSubmitting(true);
     setSubmitError('');
     setErrors({});
@@ -443,9 +420,14 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
     try {
       const confirmationNumber = 'SJ-' + Math.random().toString(36).substring(2, 8).toUpperCase();
 
-      // Prepare selected addons for display
+      // Prepare selected addons (exclude auto-included ones from display)
+      const includedInService = formData.serviceType === 'deep'
+        ? ['wallStainRemoval', 'tileAndGrout', 'baseboardCleaning']
+        : formData.serviceType === 'moveout'
+        ? ['bedroomBathroomCabinets', 'wallStainRemoval', 'tileAndGrout', 'baseboardCleaning']
+        : [];
       const selectedAddons = Object.entries(formData.addons)
-        .filter(([_, value]) => value)
+        .filter(([key, value]) => value && !includedInService.includes(key))
         .map(([key]) => key)
         .join(', ');
 
@@ -471,8 +453,6 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
       };
 
       // Submit to Formspree
-      console.log('Submitting to Formspree:', formspreeData);
-      
       let response;
       try {
         response = await fetch('https://formspree.io/f/xdkoqvgz', {
@@ -483,26 +463,12 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
           body: JSON.stringify(formspreeData)
         });
       } catch (error) {
-        console.error('Fetch error:', error);
-        alert('Network error submitting form. Please check:\n1. Your internet connection\n2. Any ad blockers or extensions\n3. Form is activated in Formspree');
-        setSubmitError('Network error. Please try again or contact us directly.');
+        setSubmitError('Network error. Please check your connection and try again.');
         setIsSubmitting(false);
         return;
       }
 
-      console.log('Response status:', response.status);
-      const result = await response.json();
-      console.log('Formspree response:', result);
-
       if (response.ok) {
-        // Track successful quote submission
-        // trackEvent('quote_submitted', {
-        //   service_type: formData.serviceType,
-        //   bedrooms: formData.bedrooms,
-        //   bathrooms: formData.bathrooms,
-        //   confirmation_number: confirmationNumber,
-        // });
-        
         setFormData(prev => ({ ...prev, confirmationNumber }));
         setCurrentStep(4);
       } else {
@@ -510,18 +476,16 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
         throw new Error(errorData.message || `Server error: ${response.status}`);
       }
     } catch (error) {
-      console.error('Form submission error:', error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
       
-      // Retry logic for network errors
-      if (retryCount < 2 && (error instanceof TypeError || error.message.includes('fetch'))) {
+      if (retryCount < 2 && (error instanceof TypeError || message.includes('fetch'))) {
         setTimeout(() => handleSubmit(retryCount + 1), 1000);
         return;
       }
       
-      // Show user-friendly error message
-      if (error.message.includes('fetch') || error instanceof TypeError) {
+      if (message.includes('fetch') || error instanceof TypeError) {
         setSubmitError('Network error. Please check your connection and try again.');
-      } else if (error.message.includes('400')) {
+      } else if (message.includes('400')) {
         setSubmitError('Please check your information and try again.');
       } else {
         setSubmitError('Something went wrong. Please try again or contact us directly.');
@@ -542,7 +506,7 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
               </h3>
             </div>
             
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-white mb-2">
                 Phone Number
               </label>
@@ -553,18 +517,16 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
                   const formatted = formatPhoneNumber(e.target.value);
                   updateFormData('phone', formatted);
                 }}
-                placeholder="(714) 597-6420"
+                placeholder="(669) 257-6420"
                 maxLength={14}
                 className={`w-full px-3 py-3 border rounded-lg bg-white/20 text-white placeholder-white/70 focus:ring-2 focus:ring-[#dfbd69] focus:border-white backdrop-blur-sm ${
                   errors.phone ? 'border-red-400 ring-1 ring-red-400' : 'border-white/30'
                 }`}
                 required
               />
-              <div className="h-5 mt-1">
-                {errors.phone && (
-                  <p className="text-sm text-red-300">{errors.phone}</p>
-                )}
-              </div>
+              {errors.phone && (
+                <p className="absolute left-0 -bottom-5 text-xs text-red-300">{errors.phone}</p>
+              )}
             </div>
           </div>
         );
@@ -573,13 +535,13 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
         return (
           <div className="space-y-6">
             <div className="text-center mb-6">
-              <h3 className="text-white/80 text-xs sm:text-sm">
-                Tell us about your property
+              <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">
+                Tell us more about your property
               </h3>
             </div>
 
             {/* Bedrooms & Bathrooms */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-2 text-white">
                   Bedrooms*
@@ -655,7 +617,7 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
                   </div>
                 </div>
               </div>
-              <div>
+              <div id="field-zipCode">
                 <label className="block text-sm font-semibold mb-2 text-white">
                   Zip Code*
                 </label>
@@ -663,7 +625,7 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
                   type="text"
                   value={formData.zipCode}
                   onChange={(e) => updateFormData('zipCode', e.target.value.replace(/\D/g, '').slice(0, 5))}
-                  placeholder="90210"
+                  placeholder="11201"
                   className={`w-full p-3 border rounded-lg bg-white/10 text-white placeholder-white/40 focus:border-[#dfbd69] focus:ring-1 focus:ring-[#dfbd69] backdrop-blur-sm ${
                     errors.zipCode ? 'border-red-400 ring-1 ring-red-400' : 'border-white/20'
                   }`}
@@ -674,16 +636,17 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
               </div>
             </div>
 
-            {/* Service Type */}
-            <div>
-              <label className="block text-sm font-semibold mb-3 text-white text-center">
-                Select Your Cleaning Type <span className="text-white/60 text-xs">(Choose one to continue)</span>
+            {/* Service Type - REQUIRED FIRST */}
+            <div id="field-serviceType">
+              <label className="block text-sm font-semibold mb-3 text-white">
+                Select Your Cleaning Type* 
+                <span className="text-[#dfbd69] ml-2 text-xs">(Choose one to continue)</span>
               </label>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {[
                   { id: 'standard', name: 'Standard Clean', description: 'Regular maintenance' },
                   { id: 'deep', name: 'Deep Clean', description: 'Thorough cleaning' },
-                  { id: 'moveout', name: 'Move Out', description: 'Complete move-out' }
+                  { id: 'moveout', name: 'Move Out Clean', description: 'Complete move-out' }
                 ].map(({ id, name, description }) => (
                   <button
                     key={id}
@@ -691,35 +654,18 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
                     onClick={() => updateFormData('serviceType', id)}
                     className={`relative cursor-pointer group ${
                       formData.serviceType === id
-                        ? 'ring-2 ring-[#dfbd69] animate-glow border-[0.5px] border-white animate-selected-pulse'
-                        : 'ring-1 ring-white/20 hover:ring-2 hover:ring-white/40'
-                    } rounded-lg p-6 flex flex-col items-center justify-center text-center transition-all duration-300 ease-in-out ${
-                      formData.serviceType === id ? 'bg-white/40' : 'bg-white/10'
-                    } backdrop-blur-sm`}
-                    style={formData.serviceType === id ? {boxShadow: '0 0 20px rgba(26, 74, 46, 0.3)'} : {}}
-                    onMouseEnter={(e) => {
-                      if (formData.serviceType !== id) {
-                        e.currentTarget.style.boxShadow = '0 0 15px rgba(255, 255, 255, 0.2)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (formData.serviceType !== id) {
-                        e.currentTarget.style.boxShadow = 'none';
-                      }
-                    }}
+                        ? 'ring-2 ring-[#dfbd69] bg-white/40'
+                        : 'ring-1 ring-white/30 hover:ring-2 hover:ring-[#dfbd69]/50 bg-white/10'
+                    } rounded-lg p-4 flex flex-col items-center justify-center text-center transition-all duration-300 ease-in-out backdrop-blur-sm`}
                   >
-                    <div className="flex flex-col gap-2">
-                      <span className="text-xs sm:text-sm font-medium text-white">{name}</span>
-                      <span className="text-[10px] sm:text-xs text-white/70">{description}</span>
-                    </div>
+                    <span className="text-sm font-semibold text-white mb-1">{name}</span>
+                    <span className="text-xs text-white/70">{description}</span>
                   </button>
                 ))}
               </div>
-              <div className="h-5 mt-2">
-                {errors.serviceType && (
-                  <p className="text-sm text-red-300">{errors.serviceType}</p>
-                )}
-              </div>
+              {errors.serviceType && (
+                <p className="mt-2 text-sm text-red-300">{errors.serviceType}</p>
+              )}
             </div>
 
             {/* Frequency Selection - hidden for move out */}
@@ -728,7 +674,7 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
                 <label className="block text-sm font-semibold mb-3 text-white">
                   How often do you need cleaning?*
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   {[
                     { id: 'One Time', name: 'One Time', popular: false },
                     { id: 'Weekly', name: 'Weekly', popular: false },
@@ -757,46 +703,38 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
               </div>
             )}
 
-            {/* Add-ons Tray - Only shows after service type is selected */}
-            {showAddonsTray && formData.serviceType && (
-              <div className="transition-all duration-500 ease-in-out transform opacity-100 translate-y-0">
-                {/* Included Items Banner */}
+            {/* Add-ons Tray - Only shows after service type selected */}
+            {showAddonsTray && (
+              <div className="space-y-3 transition-all duration-700 ease-out animate-slideDown">
+                <label className="block text-sm font-semibold text-white">
+                  Add Extra Services (Optional)
+                </label>
+
                 {formData.serviceType === 'deep' && (
-                  <div className="mb-4 p-3 bg-[#dfbd69]/20 border border-[#dfbd69]/40 rounded-lg">
-                    <p className="text-sm text-white text-center">
-                      <span className="font-semibold">Deep Clean includes:</span> Baseboards, Wall Stains, Tile & Grout
-                    </p>
+                  <div className="text-xs text-[#dfbd69] bg-[#dfbd69]/10 border border-[#dfbd69]/30 rounded-lg p-3">
+                    <strong>Included:</strong> Baseboards, Wall Stains, Tile & Grout
                   </div>
                 )}
                 {formData.serviceType === 'moveout' && (
-                  <div className="mb-4 p-3 bg-[#dfbd69]/20 border border-[#dfbd69]/40 rounded-lg">
-                    <p className="text-sm text-white text-center">
-                      <span className="font-semibold">Move Out includes:</span> Cabinets, Baseboards, Wall Stains, Tile & Grout
-                    </p>
+                  <div className="text-xs text-[#dfbd69] bg-[#dfbd69]/10 border border-[#dfbd69]/30 rounded-lg p-3">
+                    <strong>Included:</strong> Cabinets, Baseboards, Wall Stains, Tile & Grout
                   </div>
                 )}
 
-                <label className="block text-sm font-semibold mb-3 text-white">
-                  Add-ons (Optional)
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {ADDONS.filter((addon) => {
-                    // Hide dishes from all service types
+                    // Hide dishes from all service types and hide included addons from the list
                     if (addon.key === 'dishes') return false;
                     
                     // Super Deep Clean only available for Standard and Deep cleans
                     if (addon.key === 'superDeepClean' && formData.serviceType === 'moveout') return false;
                     
-                    // Hide included addons from the tray
-                    if (formData.serviceType === 'deep' && 
-                        (addon.key === 'wallStainRemoval' || addon.key === 'tileAndGrout' || addon.key === 'baseboardCleaning')) {
-                      return false;
-                    }
-                    if (formData.serviceType === 'moveout' && 
-                        (addon.key === 'bedroomBathroomCabinets' || addon.key === 'wallStainRemoval' || addon.key === 'tileAndGrout' || addon.key === 'baseboardCleaning')) {
-                      return false;
-                    }
-                    return true;
+                    const isAutoIncluded = 
+                      (formData.serviceType === 'deep' && 
+                        (addon.key === 'wallStainRemoval' || addon.key === 'tileAndGrout' || addon.key === 'baseboardCleaning')) ||
+                      (formData.serviceType === 'moveout' && 
+                        (addon.key === 'bedroomBathroomCabinets' || addon.key === 'wallStainRemoval' || addon.key === 'tileAndGrout' || addon.key === 'baseboardCleaning'));
+                    return !isAutoIncluded;
                   }).map((addon) => {
                     const isSelected = formData.addons[addon.key as keyof typeof formData.addons];
                     
@@ -804,26 +742,15 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
                       <label key={addon.key} className="relative cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={isSelected}
+                          checked={formData.addons[addon.key as keyof typeof formData.addons]}
                           onChange={() => toggleAddOn(addon.key)}
                           className="sr-only peer"
                         />
                         <div className={`w-full p-3 rounded-lg text-center transition-all duration-300 ease-in-out backdrop-blur-sm ${
                           isSelected
-                            ? 'ring-2 ring-[#dfbd69] bg-white/40 animate-glow border-[0.5px] border-white animate-selected-pulse'
-                            : 'ring-1 ring-white/20 bg-white/10 hover:ring-2 hover:ring-white/40'
-                        }`} 
-                        style={isSelected ? {boxShadow: '0 0 20px rgba(26, 74, 46, 0.3)'} : {}}
-                        onMouseEnter={(e) => {
-                          if (!isSelected) {
-                            e.currentTarget.style.boxShadow = '0 0 15px rgba(255, 255, 255, 0.2)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isSelected) {
-                            e.currentTarget.style.boxShadow = 'none';
-                          }
-                        }}>
+                            ? 'ring-2 ring-[#dfbd69] bg-white/40'
+                            : 'ring-1 ring-white/20 bg-white/10 hover:ring-2 hover:ring-[#dfbd69]/50'
+                        }`}>
                           <div className="flex flex-col gap-2">
                             <div className="w-8 h-8 mx-auto">
                               <Image
@@ -834,111 +761,155 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
                                 className="w-full h-full object-contain"
                               />
                             </div>
-                            <div className="text-xs sm:text-sm font-medium text-white">{addon.label}</div>
-                            <div className="text-[10px] sm:text-xs text-white/70">{addon.description}</div>
+                            <div className="text-xs font-medium text-white">
+                              {addon.label}
+                            </div>
+                            <div className="text-[10px] text-white/70">
+                              {addon.description}
+                            </div>
                           </div>
                         </div>
                       </label>
                     );
                   })}
                 </div>
+
+                {/* Contact Information - Shows after addons */}
+                <div className="pt-8 mt-8 border-t border-white/20">
+                  <h4 className="text-base font-semibold text-white mb-6">Your Contact Information</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div id="field-firstName" className="relative">
+                      <label className="block text-sm font-semibold mb-2 text-white">
+                        First Name*
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.firstName}
+                        onChange={(e) => updateFormData('firstName', e.target.value)}
+                        placeholder="ex. Jane"
+                        className={`w-full p-3 border rounded-lg bg-white/10 text-white placeholder-white/50 focus:border-[#dfbd69] focus:ring-1 focus:ring-[#dfbd69] backdrop-blur-sm ${
+                          errors.firstName ? 'border-red-400 ring-1 ring-red-400' : 'border-white/20'
+                        }`}
+                        required
+                      />
+                      {errors.firstName && (
+                        <p className="absolute left-0 -bottom-5 text-xs text-red-300">{errors.firstName}</p>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <label className="block text-sm font-semibold mb-2 text-white">
+                        Last Name*
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.lastName}
+                        onChange={(e) => updateFormData('lastName', e.target.value)}
+                        placeholder="ex. Smith"
+                        className={`w-full p-3 border rounded-lg bg-white/10 text-white placeholder-white/50 focus:border-[#dfbd69] focus:ring-1 focus:ring-[#dfbd69] backdrop-blur-sm ${
+                          errors.lastName ? 'border-red-400 ring-1 ring-red-400' : 'border-white/20'
+                        }`}
+                        required
+                      />
+                      {errors.lastName && (
+                        <p className="absolute left-0 -bottom-5 text-xs text-red-300">{errors.lastName}</p>
+                      )}
+                    </div>
+                    <div id="field-email" className="relative">
+                      <label className="block text-sm font-semibold mb-2 text-white">
+                        Email*
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => updateFormData('email', e.target.value)}
+                        placeholder="email@example.com"
+                        className={`w-full p-3 border rounded-lg bg-white/10 text-white placeholder-white/50 focus:border-[#dfbd69] focus:ring-1 focus:ring-[#dfbd69] backdrop-blur-sm ${
+                          errors.email ? 'border-red-400 ring-1 ring-red-400' : 'border-white/20'
+                        }`}
+                        required
+                      />
+                      {errors.email && (
+                        <p className="absolute left-0 -bottom-5 text-xs text-red-300">{errors.email}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
+          </div>
+        );
+        
+      case 3:
+        const selectedAddons = Object.entries(formData.addons)
+          .filter(([_, value]) => value)
+          .map(([key]) => ADDONS.find(addon => addon.key === key))
+          .filter(Boolean);
 
-            {/* Contact Information */}
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Who are we servicing?</h3>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold mb-2 text-white">
-                    First Name*
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => updateFormData('firstName', e.target.value)}
-                    placeholder="ex. Jane"
-                    className={`w-full p-3 border rounded-lg bg-white/10 text-white placeholder-white/50 focus:border-[#dfbd69] focus:ring-1 focus:ring-[#dfbd69] backdrop-blur-sm ${
-                      errors.firstName ? 'border-red-400 ring-1 ring-red-400' : 'border-white/20'
-                    }`}
-                    required
-                  />
-                  <div className="h-5 mt-1">
-                    {errors.firstName && (
-                      <p className="text-sm text-red-300">{errors.firstName}</p>
-                    )}
-                  </div>
+        return (
+          <div className="space-y-6">
+            <div className="text-center mb-6">
+              <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">
+                Review Your Quote
+              </h3>
+              <p className="text-sm text-white/70">
+                Please review your information before submitting
+              </p>
+            </div>
+
+            {/* Quote Summary - Modern Grid Layout */}
+            <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-white/60 uppercase tracking-wide">Name</p>
+                  <p className="text-base font-medium text-white">{formData.firstName} {formData.lastName}</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2 text-white">
-                    Last Name*
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => updateFormData('lastName', e.target.value)}
-                    placeholder="ex. Smith"
-                    className={`w-full p-3 border rounded-lg bg-white/10 text-white placeholder-white/50 focus:border-[#dfbd69] focus:ring-1 focus:ring-[#dfbd69] backdrop-blur-sm ${
-                      errors.lastName ? 'border-red-400 ring-1 ring-red-400' : 'border-white/20'
-                    }`}
-                    required
-                  />
-                  <div className="h-5 mt-1">
-                    {errors.lastName && (
-                      <p className="text-sm text-red-300">{errors.lastName}</p>
-                    )}
-                  </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-white/60 uppercase tracking-wide">Phone</p>
+                  <p className="text-base font-medium text-white">{formData.phone}</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2 text-white">
-                    Email*
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => updateFormData('email', e.target.value)}
-                    placeholder="email@example.com"
-                    className={`w-full p-3 border rounded-lg bg-white/10 text-white placeholder-white/50 focus:border-[#dfbd69] focus:ring-1 focus:ring-[#dfbd69] backdrop-blur-sm ${
-                      errors.email ? 'border-red-400 ring-1 ring-red-400' : 'border-white/20'
-                    }`}
-                    required
-                  />
-                  <div className="h-5 mt-1">
-                    {errors.email && (
-                      <p className="text-sm text-red-300">{errors.email}</p>
-                    )}
-                  </div>
+                <div className="space-y-1 md:col-span-2">
+                  <p className="text-xs text-white/60 uppercase tracking-wide">Email</p>
+                  <p className="text-base font-medium text-white">{formData.email}</p>
                 </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-white/60 uppercase tracking-wide">Property</p>
+                  <p className="text-base font-medium text-white">
+                    {formData.bedrooms} Bed, {formData.bathrooms} Bath
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-white/60 uppercase tracking-wide">Service</p>
+                  <p className="text-base font-medium text-[#dfbd69]">
+                    {formData.serviceType === 'standard' && 'Standard Clean'}
+                    {formData.serviceType === 'deep' && 'Deep Clean'}
+                    {formData.serviceType === 'moveout' && 'Move Out Clean'}
+                  </p>
+                </div>
+                {selectedAddons.length > 0 && (
+                  <div className="space-y-1 md:col-span-2 pt-3 border-t border-white/10">
+                    <p className="text-xs text-white/60 uppercase tracking-wide">Add-ons</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {selectedAddons.map((addon) => addon && (
+                        <span key={addon.key} className="px-3 py-1 bg-[#dfbd69]/20 border border-[#dfbd69]/40 rounded-full text-xs font-medium text-[#dfbd69]">
+                          {addon.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Submit Error Display */}
             {submitError && (
-              <div className="bg-red-500/20 border border-red-400 rounded-lg p-4 mb-4">
+              <div className="bg-red-500/20 border border-red-400 rounded-lg p-4">
                 <p className="text-red-300 text-sm text-center">{submitError}</p>
               </div>
             )}
 
             <p className="text-[10px] sm:text-xs text-white/60 text-center leading-relaxed">
-              By submitting this form, you agree to receive communications from San Jose Maids regarding your quote request.
-              <br /><br />
-              We respect your privacy and will never share your information.
+              By submitting, you agree to receive communications from San Jose Maids regarding your quote request.
             </p>
-            
-            <div className="text-center pt-4 border-t border-white/20">
-              <p className="text-xs sm:text-sm text-white/80 mb-2">
-                Not sure what to book?
-              </p>
-              <p className="text-sm sm:text-base text-white font-semibold">
-                Call or text us!{' '}
-                <a 
-                  href="tel:+14805200202" 
-                  className="text-[#dfbd69] hover:text-[#dfbd69]/80 transition-colors underline"
-                >
-                  (480) 520-0202
-                </a>
-              </p>
-            </div>
           </div>
         );
         
@@ -955,38 +926,43 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
       case 2:
         // Move out doesn't require frequency selection
         const frequencyValid = formData.serviceType === 'moveout' || formData.frequency;
-        return formData.firstName && formData.lastName && formData.email && validateEmail(formData.email) && formData.bedrooms && formData.bathrooms && frequencyValid && formData.serviceType;
+        return formData.serviceType && frequencyValid && formData.firstName && formData.lastName && formData.email && validateEmail(formData.email);
+      case 3:
+        return true; // Summary step - always can proceed
       default:
         return false;
     }
   };
 
-  if (currentStep === 3) {
+  if (currentStep === 4) {
     return (
-      <div className="w-full">
-        {renderStep()}
+      <div ref={wizardRef}>
+        <SuccessMessage type="quote" confirmationNumber={formData.confirmationNumber} inline={true} onClose={handleCloseSuccess} />
       </div>
     );
   }
 
-  if (currentStep === 4) {
-    return <SuccessMessage type="quote" confirmationNumber={formData.confirmationNumber}  inline={true} onClose={handleCloseSuccess} />;
-  }
-
   return (
-    <div className="w-full">
+    <div className="w-full" ref={wizardRef}>
       {/* Header */}
       <div className="text-center mb-6">
-        <h2 className="text-xl sm:text-2xl font-serif font-bold text-white mb-4 drop-shadow-lg">
+        <h2 className="text-xl sm:text-2xl font-serif font-bold text-white mb-3 drop-shadow-lg">
           Get a free quote instantly!
         </h2>
-        
+        {/* Progress indicator */}
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="flex items-center gap-2">
+            <div className={`h-1 w-12 rounded-full transition-all duration-300 ${currentStep >= 1 ? 'bg-[#dfbd69]' : 'bg-white/20'}`} />
+            <div className={`h-1 w-12 rounded-full transition-all duration-300 ${currentStep >= 2 ? 'bg-[#dfbd69]' : 'bg-white/20'}`} />
+          </div>
+          <span className="text-white/40 text-xs">Step {Math.min(currentStep, 2)} of 2</span>
+        </div>
       </div>
       
 
 
       {/* Step Content */}
-      <div className="max-w-2xl mx-auto">
+      <div ref={stepContentRef} className="max-w-2xl mx-auto">
         {renderStep()}
 
         {/* Navigation Buttons */}
@@ -1000,7 +976,7 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
           </button>
         )}
         
-        {currentStep === 2 ? (
+        {currentStep === 3 ? (
           <button
             onClick={() => handleSubmit()}
             disabled={!canProceed() || isSubmitting}
@@ -1037,24 +1013,23 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
         )}
       </div>
 
-      {/* Help text - Show on all steps */}
-      <div className="mt-6 text-center pt-4 border-t border-white/20">
-        <p className="text-xs sm:text-sm text-white/80 mb-2">
-          Need help?
-        </p>
-        <p className="text-sm sm:text-base text-white font-semibold">
-          Call or text us!{' '}
-          <a
-            href={CONTACT_INFO.phone.href}
-            className="text-[#dfbd69] hover:text-[#dfbd69]/80 transition-colors duration-200 underline"
-          >
-            {CONTACT_INFO.phone.display}
-          </a>
-        </p>
-      </div>
+      {/* Help Text - Only show on steps 2, 3 */}
+      {currentStep > 1 && (
+        <div className="text-center mt-6 pt-4 border-t border-white/10">
+          <p className="text-sm text-white/70">
+            Need help?{' '}
+            <a 
+              href={`sms:${CONTACT_INFO.phone.raw}`}
+              className="text-[#dfbd69] hover:text-[#dfbd69]/80 font-semibold transition-colors duration-200"
+            >
+              Text {CONTACT_INFO.phone.display}
+            </a>
+          </p>
+        </div>
+      )}
 
-      {/* Reviews Section - Only show on step 2 (after buttons) */}
-      {currentStep === 2 && (
+      {/* Reviews Section - Only show on step 3 (last step before submission) */}
+      {currentStep === 3 && (
         <div className="mt-6 flex items-center justify-center gap-8">
           <div className="flex items-center gap-2">
             <div className="flex">
@@ -1064,10 +1039,10 @@ export default function StepWizard({ onFormExpand }: StepWizardProps = {}) {
                 </svg>
               ))}
             </div>
-            <span className="text-sm text-white/80">4.9 (500+ Reviews)</span>
+            <span className="text-sm text-white/80">4.9 (171 Reviews)</span>
           </div>
           <div className="text-sm text-white/80">
-            <span className="font-semibold">5,000+</span> Homes Cleaned
+            <span className="font-semibold">171</span> Happy Customers
           </div>
         </div>
       )}
